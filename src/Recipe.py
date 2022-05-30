@@ -6,7 +6,7 @@
 
 from contextlib import nullcontext
 import requests
-import json
+import re
 
 class Recipe:
     """
@@ -32,6 +32,17 @@ class Recipe:
     recipes = {}
     response = None
 
+    def createRecipeDict(self,response):
+        self.response = response.json()
+        self.recipes['count'] = self.response['count']
+        self.recipes['next'] = self.response['_links']['next']['href']
+        if self.recipes['count'] > 0:
+            self.recipes['recipes'] = []
+        for recipe in self.response['hits']:
+            self.recipes['recipes'].append((recipe['recipe']['label'],recipe['_links']['self']['href']))
+        
+        return self.recipes
+
     def findRecipes(self, filters:dict):
         q = ''
         for k in filters:
@@ -43,20 +54,36 @@ class Recipe:
             searchurl = self.URL + q
             r = requests.get(searchurl)
             if r.status_code == 200:
-                self.response = r.json()
-                self.recipes['count'] = self.response['count']
-                if self.recipes['count'] > 0:
-                    self.recipes['names'] = []
-                for recipe in self.response['hits']:
-                    self.recipes['names'].append(recipe['recipe']['label'])
-        
-        return json.dumps(self.recipes, indent=4)
+                return self.createRecipeDict(r)
+    
+
+
+    def getNext20Recipes(self,href):
+        r = requests.get(href)
+        return self.createRecipeDict(r)
 
     def saveRecipe(self, recipeId):
         pass
 
-    def getRecipe(self, recipeId):
-        pass
+    def getRecipe(self, recipeUrl):
+        r = requests.get(recipeUrl)
+        response = r.json()
+        recipe = {}
+        makros = {}
+        if r.status_code == 200:
+            recipe['recipe_name'] = response['recipe']['label'] 
+            recipe['source'] = response['recipe']['source'] 
+            recipe['source_url'] = response['recipe']['url'] 
+            recipe['ingredients'] = response['recipe']['ingredientLines'] 
+            recipe['calories'] = response['recipe']['calories']
+            recipe['yield'] = response['recipe']['yield']
+            makros['fat'] = response['recipe']['totalNutrients']['FAT']
+            makros['carbs'] = response['recipe']['totalNutrients']['CHOCDF']
+            makros['sugar'] = response['recipe']['totalNutrients']['SUGAR']
+            makros['protein'] = response['recipe']['totalNutrients']['PROCNT']
+            recipe['makros'] = makros
+            
+        return recipe
 
     def getFavorites(self):
         pass
