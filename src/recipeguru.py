@@ -9,6 +9,7 @@ from pprint import pprint
 from tkinter.tix import Tree
 from unittest import result
 from PyInquirer import prompt, Separator
+import keyboard
 
 from Recipe import Recipe
 from Ingredients import Ingredients
@@ -78,6 +79,12 @@ ingredients = [
         'message': 'What ingredients are you looking for?',
         'filter': lambda val: val.lower()
     },
+    {
+        'type': 'confirm',
+        'name': 'no-ingredient',
+        'message': "Are you sure you don't want to enter another ingredient?",
+        'when': lambda ing: ing['ingredients'] == ''
+    }
 ]
 
 cont = [
@@ -91,27 +98,30 @@ cont = [
         'name': 'menu',
         'message': 'Do you want to return to main menu?',
         'when': lambda cont: not cont['continue']
-    },
+    }
 
 ]
 
 def main():
     # get initial searchtype from user
+    exit = False
     answers = prompt(questions,style=custom_style_2)
-    while answers['action'] != 'exit':
+    if answers['action'] == 'exit':
+        exit = True
+    while not exit:
         ingredientslist = []
         searchdict = {}
         if answers['searchtype'] == 'Search with ingredients':
             # user selected 'search with ingredients' therefore, we're going to prompt the user for the ingredients 
             ingredients = get_input_ingredients()
-            while ingredients['ingredients'] != '':
+            while ingredients['ingredients'] > '':
                 ingredientslist.append(ingredients['ingredients'])
                 ingredients = get_input_ingredients()
-            if len(ingredientslist) > 0:
+            if len(ingredientslist) > 0 :
                 # after user enters ingredients we're going to find recipes with the selected ingredients 
                 searchdict['ingredients'] = ingredientslist
                 recipesresult = recipe.findRecipes(searchdict)
-                while(len(recipesresult) > 0):
+                while(len(recipesresult) > 0) and not exit:
                     print('im here')
                     recipeoptions(recipesresult)
                     # user can now decide if he wants to get more information for a recipe which is listed or look at the next 20 recipes
@@ -138,6 +148,10 @@ def main():
                                 elif action['menu']:
                                     recipesresult.clear()
                                     answers = prompt(questions,style=custom_style_2)
+                                else:
+                                    exit = True
+            else:
+                answers = prompt(questions,style=custom_style_2)
                                     
         
 
