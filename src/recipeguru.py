@@ -21,18 +21,28 @@ recipenames = []
 
 
 # get recipe names for selection
-def recipeoptions(reciperesult):
+def recipeoptions(list, function):
     recipenames.clear()
-    for recipe in reciperesult['recipes']:
-        recipenames.append(recipe[0])
-    recipenames.append(Separator())
-    recipenames.append('next 20 recipes')
-    recipenames.append('back to main menu')
+    if function == 'recipes':
+        for recipe in list['recipes']:
+            recipenames.append(recipe[0])
+            recipenames.append(Separator())
+            recipenames.append('next 20 recipes')
+            recipenames.append('back to main menu')
+    else:
+        for recipe in list:
+            recipenames.append(recipe)
 
 # get ingredients from input
 def get_input_ingredients():
     return prompt(ingredients,style=custom_style_2)
 
+def show_recipe_info(r):
+    # get Url for selected recipe to get the information
+    recipeUrl = r[1]
+    recipeInfo = recipe.getRecipe(recipeUrl)
+    # show user information of recipe
+    print(json.dumps(recipeInfo, indent=4))
 
 # intro questions
 questions = [
@@ -42,7 +52,7 @@ questions = [
         'message': 'What do you want to do?',
         'choices': [
             'Search for recipes',
-            'Show favorite recipes',
+            'Show saved recipes',
             'exit'
         ],
     },
@@ -82,77 +92,116 @@ ingredients = [
     {
         'type': 'confirm',
         'name': 'no-ingredient',
-        'message': "Are you sure you don't want to enter another ingredient?",
-        'when': lambda ing: ing['ingredients'] == ''
+        'message': "Do you want to enter another ingredient?",
+        'default': True
     }
 ]
 
 cont = [
     {
-        'type': 'confirm',
+        'type': 'list',
         'name': 'continue',
-        'message': 'Do you want to continue browsing recipes?'
+        'message': 'actions:',
+        'choices': [
+            'save recipe',
+            'continue browsing recipes',
+            'enter new ingredients',
+            'back to main menu',
+            'exit'
+        ]
     },
-    {
-        'type': 'confirm',
-        'name': 'menu',
-        'message': 'Do you want to return to main menu?',
-        'when': lambda cont: not cont['continue']
-    }
-
 ]
 
-def main():
-    # get initial searchtype from user
-    exit = False
+favorites = [
+    {
+        'type': 'list',
+        'name': 'favorites',
+        'message': "You're saved recipes:",
+        'choices': recipenames
+    }
+]
+
+def show_main_menu():
+    exit = False 
     answers = prompt(questions,style=custom_style_2)
     if answers['action'] == 'exit':
         exit = True
+    return answers, exit
+
+def main():
+    # get initial searchtype from user
+    answers,exit = show_main_menu()
     while not exit:
         ingredientslist = []
         searchdict = {}
-        if answers['searchtype'] == 'Search with ingredients':
-            # user selected 'search with ingredients' therefore, we're going to prompt the user for the ingredients 
-            ingredients = get_input_ingredients()
-            while ingredients['ingredients'] > '':
-                ingredientslist.append(ingredients['ingredients'])
+        newingredientssearch = False
+        if answers['action'] == 'Search for recipes':
+            if answers['searchtype'] == 'Search with ingredients' or newingredientssearch:
+                # user selected 'search with ingredients', therefore, we're going to prompt the user for the ingredients 
                 ingredients = get_input_ingredients()
-            if len(ingredientslist) > 0 :
-                # after user enters ingredients we're going to find recipes with the selected ingredients 
-                searchdict['ingredients'] = ingredientslist
-                recipesresult = recipe.findRecipes(searchdict)
-                while(len(recipesresult) > 0) and not exit:
-                    print('im here')
-                    recipeoptions(recipesresult)
-                    # user can now decide if he wants to get more information for a recipe which is listed or look at the next 20 recipes
-                    selectedrecipe = prompt(recipes,style=custom_style_2)
+                if not ingredients['no-ingredient'] :
+                        if ingredients['ingredients'] > '':
+                            ingredientslist.append(ingredients['ingredients'])
+                while ingredients['ingredients'] != '' and ingredients['no-ingredient']:
+                    ingredientslist.append(ingredients['ingredients'])
+                    ingredients = get_input_ingredients()
+                    # if user does not want to add more ingredients the previously entered ingredient is added to the list as well (only if it's not an empty entry)
+                    if not ingredients['no-ingredient'] :
+                        if ingredients['ingredients'] > '':
+                            ingredientslist.append(ingredients['ingredients'])
+                        break
+                if len(ingredientslist) > 0 :
+                    # after user enters ingredients we're going to find recipes with the selected ingredients 
+                    searchdict['ingredients'] = ingredientslist
+                    recipesresult = recipe.findRecipes(searchdict)
+                    while(len(recipesresult) > 0) and not exit and not newingredientssearch:
+                        recipeoptions(recipesresult,'recipes')
+                        # user can now decide if he wants to get more information for a recipe which is listed or look at the next 20 recipes
+                        selectedrecipe = prompt(recipes,style=custom_style_2)
 
-                    # see next 20 recipes
-                    if selectedrecipe['recipes'] == 'next 20 recipes':
-                        recipesresult = recipe.getNext20Recipes(recipesresult['next'])
-                    # go back to main menu
-                    elif selectedrecipe['recipes'] == 'back to main menu':
-                        recipesresult.clear()
-                        answers = prompt(questions,style=custom_style_2)
-                    else:
-                        # get Url for selected recipe to get the information
-                        for r in recipesresult['recipes']:
-                            if r[0] == selectedrecipe['recipes']:
-                                recipeUrl = r[1]
-                                recipeInfo = recipe.getRecipe(recipeUrl)
-                                print(json.dumps(recipeInfo, indent=4))
-                                Separator()
-                                action = prompt(cont,style=custom_style_2)
-                                if action['continue']:
-                                    pass
-                                elif action['menu']:
-                                    recipesresult.clear()
-                                    answers = prompt(questions,style=custom_style_2)
-                                else:
-                                    exit = True
-            else:
-                answers = prompt(questions,style=custom_style_2)
-                                    
+                        # see next 20 recipes
+                        if selectedrecipe['recipes'] == 'next 20 recipes':
+                            recipesresult = recipe.getNext20Recipes(recipesresult['next'])
+                        # go back to main menu
+                        elif selectedrecipe['recipes'] == 'back to main menu':
+                            recipesresult.clear()
+                            answers,exit = show_main_menu()
+                        # get information for recipe
+                        else:
+                            for r in recipesresult['recipes']:
+                                if r[0] == selectedrecipe['recipes']:
+                                    recipeUrl = r[1]
+                                    show_recipe_info(r)
+                                    Separator()
+                                    # ask user what they want to do next (continue browsing recipes or go back to menu or exit)
+                                    action = prompt(cont,style=custom_style_2)
+                                    if action['continue'] == 'continue browsing recipes':
+                                        pass
+                                    elif action['continue'] == 'back to main menu':
+                                        recipesresult.clear()
+                                        answers,exit = show_main_menu()
+                                    elif action['continue'] == 'enter new ingredients':
+                                        newingredientssearch = True
+                                    elif action['continue'] == 'save recipe':
+                                        recipe.saveRecipe(selectedrecipe['recipes'],recipeUrl)
+                                    else:
+                                        exit = True
+                else:
+                    answers,exit = show_main_menu()
+        # show saved recipes and get information about them
+        elif answers['action'] == 'Show saved recipes':
+            favoriterecipes = recipe.getFavorites()
+            favoritesnames = []
+            for f in favoriterecipes:
+                favoritesnames.append(f[0])
+            while (len(favoriterecipes)>0):
+                recipeoptions(favoritesnames,'favorites')
+                selectedfave = prompt(favorites,style=custom_style_2)
+
+                for f in favoriterecipes:
+                    if f[0] == selectedfave['favorites']:
+                        show_recipe_info(f)
+
         
 
 if __name__ == '__main__':

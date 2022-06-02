@@ -6,7 +6,7 @@
 
 from contextlib import nullcontext
 import requests
-import re
+from Database import Database
 
 class Recipe:
     """
@@ -28,9 +28,10 @@ class Recipe:
 
     """
 
-    URL = 'https://api.edamam.com/api/recipes/v2?app_id=dc4783f9&app_key=65a6ebb5c315e0c402346af6c4d22fba&type=public&q='
+    URL = 'https://api.edamam.com/api/recipes/v2?app_id=dc4783f9&app_key=65a6ebb5c315e0c402346af6c4d22fba&type=public&beta=true&q='
     recipes = {}
     response = None
+    db = Database()
 
     def createRecipeDict(self,response):
         self.response = response.json()
@@ -62,8 +63,10 @@ class Recipe:
         r = requests.get(href)
         return self.createRecipeDict(r)
 
-    def saveRecipe(self, recipeId):
-        pass
+    def saveRecipe(self, name,recipeUrl):
+        self.db.insert(name,recipeUrl)
+        
+
 
     def getRecipe(self, recipeUrl):
         r = requests.get(recipeUrl)
@@ -77,6 +80,7 @@ class Recipe:
             recipe['ingredients'] = response['recipe']['ingredientLines'] 
             recipe['calories'] = response['recipe']['calories']
             recipe['yield'] = response['recipe']['yield']
+            recipe['co2e'] = response['recipe']['totalCO2Emissions']
             makros['fat'] = response['recipe']['totalNutrients']['FAT']
             makros['carbs'] = response['recipe']['totalNutrients']['CHOCDF']
             makros['sugar'] = response['recipe']['totalNutrients']['SUGAR']
@@ -86,5 +90,6 @@ class Recipe:
         return recipe
 
     def getFavorites(self):
-        pass
+        favorites = self.db.get_list_of_favorites()
+        return favorites
 
