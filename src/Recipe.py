@@ -66,7 +66,8 @@ class Recipe:
     def saveRecipe(self, name,recipeUrl):
         self.db.insert(name,recipeUrl)
         
-
+    def deleteRecipe(self,name):
+        self.db.delete(name)
 
     def getRecipe(self, recipeUrl):
         r = requests.get(recipeUrl)
